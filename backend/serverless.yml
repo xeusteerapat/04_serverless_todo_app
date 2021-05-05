@@ -18,6 +18,8 @@ provider:
     - Effect: Allow
       Action:
         - dynamodb:Scan
+        - dynamodb:PutItem
+        - dynamodb:GetItem
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
 functions:
@@ -36,12 +38,13 @@ functions:
 
 
   # # TODO: Configure this function
-  # CreateTodo:
-  #   handler: src/lambda/http/createTodo.handler
-  #   events:
-  #     - http:
-  #         method: post
-  #         path: todos
+  CreateTodo:
+    handler: src/lambda/http/createTodo.handler
+    events:
+      - http:
+          method: post
+          path: todos
+          cors: true
 
   # # TODO: Configure this function
   # UpdateTodo:
@@ -74,14 +77,14 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: userId # partitionKey
+          - AttributeName: todoId # partitionKey
             AttributeType: S
           # - AttributeName: todoId # indexKey
           #   AttributeType: S
           # - AttributeName: createdAt # sortKey
           #   AttributeType: S
         KeySchema:
-          - AttributeName: userId # partitionKey
+          - AttributeName: todoId # partitionKey
             KeyType: HASH
           # - AttributeName: todoId # sortKey
           #   KeyType: RANGE
