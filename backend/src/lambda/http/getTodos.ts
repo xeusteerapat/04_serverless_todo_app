@@ -5,12 +5,11 @@ import {
   APIGatewayProxyResult,
   APIGatewayProxyHandler
 } from 'aws-lambda'
+import * as AWS from 'aws-sdk'
 
-// const docClient = new AWS.DynamoDB.DocumentClient()
-// console.log(docClient)
+const docClient = new AWS.DynamoDB.DocumentClient()
 
-// const todosTable = process.env.TODOS_TABLE
-// console.log(todosTable)
+const todosTable = process.env.TODOS_TABLE
 
 export const handler: APIGatewayProxyHandler = async (
   event: APIGatewayProxyEvent
@@ -18,7 +17,13 @@ export const handler: APIGatewayProxyHandler = async (
   // TODO: Get all TODO items for a current user
   console.log(`Processing event in GetTodos: ${event}`)
 
-  const todos = ['test']
+  const result = await docClient
+    .scan({
+      TableName: todosTable
+    })
+    .promise()
+
+  const todos = result.Items
 
   return {
     statusCode: 200,
