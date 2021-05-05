@@ -3,8 +3,8 @@ service:
 
 plugins:
   - serverless-webpack
-  # - serverless-aws-documentation
-  # - serverless-reqvalidator-plugin
+  - serverless-aws-documentation
+  - serverless-reqvalidator-plugin
   # - serverless-iam-roles-per-function
 
 provider:
@@ -21,6 +21,18 @@ provider:
         - dynamodb:PutItem
         - dynamodb:GetItem
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+
+custom:
+  documentation:
+    api:
+      info:
+        version: v1.0.0
+        title: Todos API
+        description: Serverless Todos application
+    models:
+      - name: "TodosRequest"
+        contentType: application/json
+        schema: ${file(request-validators/create-todo-request.json)}
 
 functions:
 
@@ -45,6 +57,13 @@ functions:
           method: post
           path: todos
           cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new todo
+            description: Create a new todo
+            requestModels:
+              'application/json': "TodosRequest"
+
 
   # # TODO: Configure this function
   # UpdateTodo:
@@ -73,6 +92,15 @@ functions:
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
+    RequestBodyValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: 'request-body-validator'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+
     TodosDynamoDBTable:
       Type: AWS::DynamoDB::Table
       Properties:
