@@ -3,7 +3,9 @@ service:
 
 plugins:
   - serverless-webpack
-  - serverless-iam-roles-per-function
+  # - serverless-aws-documentation
+  # - serverless-reqvalidator-plugin
+  # - serverless-iam-roles-per-function
 
 provider:
   name: aws
@@ -12,12 +14,11 @@ provider:
   region: ${opt:region, 'ap-southeast-1'}
   environment:
     TODOS_TABLE: Todos-${self:provider.stage}
-    INDEX_NAME: IndexName
   iamRoleStatements:
     - Effect: Allow
       Action:
         - dynamodb:Scan
-      Resource: arn:aws:dynamodb:${self:provider.stage}:*:table/${self:provider.environment.TODOS_TABLE}
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
 functions:
 
@@ -66,32 +67,32 @@ functions:
   #         method: post
   #         path: todos/{todoId}/attachment
 
-# resources:
-#   Resources:
-#     # TODO: Add any necessary AWS resources
-#     TodosTable:
-#     Type: AWS::DynamoDB::Table
-#     Properties:
-#       AttributeDefinitions:
-#         - AttributeName: partitionKey
-#           AttributeType: S
-#         - AttributeName: sortKey
-#           AttributeType: S
-#         - AttributeName: indexKey
-#           AttributeType: S
-#       KeySchema:
-#         - AttributeName: partitionKey
-#           KeyType: HASH
-#         - AttributeName: sortKey
-#           KeyType: RANGE
-#       BillingMode: PAY_PER_REQUEST
-#       TableName: ${self:provider.environment.TODOS_TABLE}
-#       LocalSecondaryIndexes:
-#         - IndexName: ${self:provider.environment.INDEX_NAME}
-#           KeySchema:
-#             - AttributeName: partitionKey
-#               KeyType: HASH
-#             - AttributeName: indexKey
-#               KeyType: RANGE
-#           Projection:
-#             ProjectionType: ALL # What attributes will be copied to an index
+resources:
+  Resources:
+    # TODO: Add any necessary AWS resources
+    TodosDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId # partitionKey
+            AttributeType: S
+          # - AttributeName: todoId # indexKey
+          #   AttributeType: S
+          # - AttributeName: createdAt # sortKey
+          #   AttributeType: S
+        KeySchema:
+          - AttributeName: userId # partitionKey
+            KeyType: HASH
+          # - AttributeName: todoId # sortKey
+          #   KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.TODOS_TABLE}
+      # LocalSecondaryIndexes:
+      #   - IndexName: ${self:provider.environment.INDEX_NAME}
+      #     KeySchema:
+      #       - AttributeName: partitionKey
+      #         KeyType: HASH
+      #       - AttributeName: indexKey
+      #         KeyType: RANGE
+      #     Projection:
+      #       ProjectionType: ALL # What attributes will be copied to an index
