@@ -8,11 +8,7 @@ import axios from 'axios'
 import { createLogger } from '../../utils/logger'
 import { Jwt } from '../../auth/Jwt'
 import { JwtPayload } from '../../auth/JwtPayload'
-import { certToPEM } from '../../auth/utils'
-
-// const secretId = process.env.AUTH_0_SECRET_ID
-// const secretField = process.env.AUTH_0_SECRET_FIELD
-const auth0WebKeySet = process.env.AUTH_0_WEB_KEY_SET
+import { certToPEM, getSecret } from '../../auth/utils'
 
 const logger = createLogger('Authentication')
 
@@ -75,11 +71,13 @@ interface Auth0WebKeys {
   x5c: string[]
 }
 
+const auth0WebKeySet = process.env.AUTH_0_WEB_KEY_SET
+
 async function verifyToken(authHeader: string): Promise<JwtPayload> {
   // Extract JWT
   const token = getToken(authHeader)
   const jwt: Jwt = decode(token, { complete: true }) as Jwt
-  logger.info(`JWT ${{ jwt }}`)
+  logger.info(`JWT >>> ${jwt}`)
 
   // TODO: Implement token verification
   // You should implement it similarly to
@@ -87,7 +85,9 @@ async function verifyToken(authHeader: string): Promise<JwtPayload> {
   // You can read more about how to do this here:
   // https://auth0.com/blog/navigating-rs256-and-jwks/
   // Get Auth0 Web Key
-  const { data } = await axios.get(auth0WebKeySet)
+  const secretObject = await getSecret(auth0WebKeySet)
+
+  const { data } = await axios.get(secretObject.Auth0SecretWebKeySet)
   const keys: Auth0WebKeys[] = data.keys
 
   // Decode the JWT and grab the kid property from the header.
