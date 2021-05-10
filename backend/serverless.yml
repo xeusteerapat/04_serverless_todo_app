@@ -246,7 +246,7 @@ resources:
     KMSKeyAlias:
       Type: AWS::KMS::Alias
       Properties:
-        AliasName: alias/auth0Key-${self:provider.stage}
+        AliasName: alias/auth0KeyWebKey-${self:provider.stage}
         TargetKeyId: !Ref KMSKey
     
     Auth0SecretWebKeySet:
