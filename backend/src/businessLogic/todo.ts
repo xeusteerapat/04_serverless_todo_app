@@ -1,3 +1,4 @@
+import { Images } from './../dataLayer/ImageAccess'
 import { UpdateTodoRequest } from './../requests/UpdateTodoRequest'
 import { CreateTodoRequest } from './../requests/CreateTodoRequest'
 import { TodoAccess } from './../dataLayer/TodoAccess'
@@ -7,6 +8,7 @@ import { createLogger } from '../utils/logger'
 
 const logger = createLogger('Todo-Logic')
 const todo = new TodoAccess()
+const image = new Images()
 
 /**
  * Get all todos of specific user
@@ -78,4 +80,11 @@ export async function updateAttachmentUrl(
   logger.info(`Signed URL ${{ attachmentUrl }}`)
 
   return await todo.updateAttachmentUrl(attachmentUrl, todoId, userId)
+}
+
+/**
+ * @param todoId
+ */
+export async function getImageSignedUrl(todoId: string) {
+  return image.getSignedUrl(todoId)
 }
