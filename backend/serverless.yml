@@ -16,6 +16,7 @@ provider:
     TODOS_TABLE: Todos-${self:provider.stage}
     TODO_ID_INDEX: TodoIdIndex
     AUTH_0_SECRET_ID: Auth0SecretTodo-${self:provider.stage}
+    AUTH_0_WEB_KEY_SET: Auth0SecretWebKeySet-${self:provider.stage}
     AUTH_0_SECRET_FIELD: auth0Secret
     IMAGES_BUCKET_NAME: serverless-todos-images-app-${self:provider.stage}
 
@@ -42,7 +43,7 @@ functions:
       - Effect: Allow
         Action:
           - secretsmanager:GetSecretValue
-        Resource: !Ref Auth0SecretTodo
+        Resource: !Ref Auth0SecretWebKeySet
       - Effect: Allow
         Action:
           - kms:Decrypt
@@ -56,6 +57,7 @@ functions:
           method: get
           path: todos
           cors: true
+          authorizer: Auth
     iamRoleStatements:
     - Effect: Allow
       Action:
@@ -71,6 +73,7 @@ functions:
           method: post
           path: todos
           cors: true
+          authorizer: Auth
           reqValidatorName: RequestBodyValidator
           documentation:
             summary: Create a new todo
@@ -92,6 +95,7 @@ functions:
           method: patch
           path: todos/{todoId}
           cors: true
+          authorizer: Auth
           reqValidatorName: RequestBodyValidator
           documentation:
             summary: Update existing todo
@@ -106,20 +110,37 @@ functions:
           
 
   # # TODO: Configure this function
-  # DeleteTodo:
-  #   handler: src/lambda/http/deleteTodo.handler
-  #   events:
-  #     - http:
-  #         method: delete
-  #         path: todos/{todoId}
+  DeleteTodo:
+    handler: src/lambda/http/deleteTodo.handler
+    events:
+      - http:
+          method: delete
+          path: todos/{todoId}
+          cors: true
+          authorizer: Auth
+    iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DeleteItem
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
   # # TODO: Configure this function
-  # GenerateUploadUrl:
-  #   handler: src/lambda/http/generateUploadUrl.handler
-  #   events:
-  #     - http:
-  #         method: post
-  #         path: todos/{todoId}/attachment
+  GenerateUploadUrl:
+    handler: src/lambda/http/generateUploadUrl.handler
+    events:
+      - http:
+          method: post
+          path: todos/{todoId}/attachment
+    iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET_NAME}/*
+    - Effect: Allow
+      Action:
+        - dynamodb:UpdateItem
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
 resources:
   Resources:
@@ -134,6 +155,7 @@ resources:
         ResponseType: DEFAULT_5XX
         RestApiId: 
           Ref: ApiGatewayRestApi
+
     RequestBodyValidator:
       Type: AWS::ApiGateway::RequestValidator
       Properties:
@@ -169,6 +191,38 @@ resources:
               ProjectionType: ALL
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOS_TABLE}
+
+    AttachmentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.IMAGES_BUCKET_NAME}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: '2012-10-17'
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET_NAME}/*'
+        Bucket: !Ref AttachmentsBucket   
+
     KMSKey:
       Type: AWS::KMS::Key
       Properties:
@@ -195,9 +249,9 @@ resources:
         AliasName: alias/auth0Key-${self:provider.stage}
         TargetKeyId: !Ref KMSKey
     
-    Auth0SecretTodo:
+    Auth0SecretWebKeySet:
       Type: AWS::SecretsManager::Secret
       Properties:
-        Name: ${self:provider.environment.AUTH_0_SECRET_ID}
-        Description: Auth0 secret
+        Name: ${self:provider.environment.AUTH_0_WEB_KEY_SET}
+        Description: Auth0 web key set
         KmsKeyId: !Ref KMSKey
