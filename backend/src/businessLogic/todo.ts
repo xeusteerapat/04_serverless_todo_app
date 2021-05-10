@@ -61,3 +61,21 @@ export async function updateTodo(
 export async function deleteTodo(todoId: string, userId: string) {
   return await todo.deleteTodo(todoId, userId)
 }
+
+/**
+ * @param signedUrl
+ * @param todoId
+ * @param userId
+ */
+export async function updateAttachmentUrl(
+  signedUrl: string,
+  todoId: string,
+  userId: string
+) {
+  // Split url, then make use of the first part
+  const attachmentUrl: string = signedUrl.split('?')[0]
+
+  logger.info(`Signed URL ${{ attachmentUrl }}`)
+
+  return await todo.updateAttachmentUrl(attachmentUrl, todoId, userId)
+}
