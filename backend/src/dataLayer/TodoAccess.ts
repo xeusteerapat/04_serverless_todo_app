@@ -87,6 +87,8 @@ export class TodoAccess {
     const updatedTodo = updateTodoItem.Attributes
 
     logger.info(`Updated todo ${{ updatedTodo }}`)
+
+    return updatedTodo
   }
 
   async deleteTodo(todoId: string, userId: string) {
