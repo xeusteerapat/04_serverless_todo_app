@@ -1,5 +1,6 @@
 import { UpdateTodoRequest } from './../requests/UpdateTodoRequest'
 import * as AWS from 'aws-sdk'
+import * as AWSXRay from 'aws-xray-sdk'
 import {
   DeleteItemOutput,
   DocumentClient,
@@ -10,9 +11,10 @@ import { createLogger } from '.././utils/logger'
 
 const logger = createLogger('Todos-Access')
 
+const XAWS = AWSXRay.captureAWS(AWS)
 export class TodoAccess {
   constructor(
-    private readonly docClient: DocumentClient = new AWS.DynamoDB.DocumentClient(),
+    private readonly docClient: DocumentClient = new XAWS.DynamoDB.DocumentClient(),
     private readonly todosTable = process.env.TODOS_TABLE,
     private readonly todoIdIndex = process.env.TODO_ID_INDEX
   ) {}
