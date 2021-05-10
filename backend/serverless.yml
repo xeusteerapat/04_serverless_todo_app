@@ -5,7 +5,7 @@ plugins:
   - serverless-webpack
   - serverless-aws-documentation
   - serverless-reqvalidator-plugin
-  # - serverless-iam-roles-per-function
+  - serverless-iam-roles-per-function
 
 provider:
   name: aws
@@ -14,13 +14,10 @@ provider:
   region: ${opt:region, 'ap-southeast-1'}
   environment:
     TODOS_TABLE: Todos-${self:provider.stage}
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:Scan
-        - dynamodb:PutItem
-        - dynamodb:GetItem
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+    TODO_ID_INDEX: TodoIdIndex
+    AUTH_0_SECRET_ID: Auth0SecretTodo-${self:provider.stage}
+    AUTH_0_SECRET_FIELD: auth0Secret
+    IMAGES_BUCKET_NAME: serverless-todos-images-app-${self:provider.stage}
 
 custom:
   documentation:
@@ -30,14 +27,26 @@ custom:
         title: Todos API
         description: Serverless Todos application
     models:
-      - name: "TodosRequest"
+      - name: "CreateTodosRequest"
+        contentType: application/json
+        schema: ${file(request-validators/create-todo-request.json)}
+      - name: "UpdateTodosRequest"
         contentType: application/json
         schema: ${file(request-validators/create-todo-request.json)}
 
 functions:
 
-  # Auth:
-  #   handler: src/lambda/auth/auth0Authorizer.handler
+  Auth:
+    handler: src/lambda/auth/auth0Authorizer.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - secretsmanager:GetSecretValue
+        Resource: !Ref Auth0SecretTodo
+      - Effect: Allow
+        Action:
+          - kms:Decrypt
+        Resource: !GetAtt KMSKey.Arn
 
   # TODO: Configure this function
   GetTodos:
@@ -47,6 +56,11 @@ functions:
           method: get
           path: todos
           cors: true
+    iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
 
   # # TODO: Configure this function
@@ -62,16 +76,34 @@ functions:
             summary: Create a new todo
             description: Create a new todo
             requestModels:
-              'application/json': "TodosRequest"
+              'application/json': "CreateTodosRequest"
+    iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
 
   # # TODO: Configure this function
-  # UpdateTodo:
-  #   handler: src/lambda/http/updateTodo.handler
-  #   events:
-  #     - http:
-  #         method: patch
-  #         path: todos/{todoId}
+  UpdateTodo:
+    handler: src/lambda/http/updateTodo.handler
+    events:
+      - http:
+          method: patch
+          path: todos/{todoId}
+          cors: true
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Update existing todo
+            description: Update existing todo
+            requestModels:
+              'application/json': "UpdateTodosRequest"
+    iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:UpdateItem
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+          
 
   # # TODO: Configure this function
   # DeleteTodo:
@@ -92,6 +124,16 @@ functions:
 resources:
   Resources:
     # TODO: Add any necessary AWS resources
+    GatewayResourceDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST,DELETE,PATCH,PUT'"
+        ResponseType: DEFAULT_5XX
+        RestApiId: 
+          Ref: ApiGatewayRestApi
     RequestBodyValidator:
       Type: AWS::ApiGateway::RequestValidator
       Properties:
@@ -107,23 +149,55 @@ resources:
         AttributeDefinitions:
           - AttributeName: todoId # partitionKey
             AttributeType: S
-          # - AttributeName: todoId # indexKey
-          #   AttributeType: S
-          # - AttributeName: createdAt # sortKey
-          #   AttributeType: S
+          - AttributeName: userId # indexKey
+            AttributeType: S
+          - AttributeName: createdAt # sortKey
+            AttributeType: S
         KeySchema:
           - AttributeName: todoId # partitionKey
             KeyType: HASH
-          # - AttributeName: todoId # sortKey
-          #   KeyType: RANGE
+          - AttributeName: userId # sortKey
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: ${self:provider.environment.TODO_ID_INDEX}
+            KeySchema:  # use a composite key for this index table as the primary key
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOS_TABLE}
-      # LocalSecondaryIndexes:
-      #   - IndexName: ${self:provider.environment.INDEX_NAME}
-      #     KeySchema:
-      #       - AttributeName: partitionKey
-      #         KeyType: HASH
-      #       - AttributeName: indexKey
-      #         KeyType: RANGE
-      #     Projection:
-      #       ProjectionType: ALL # What attributes will be copied to an index
+    KMSKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: KMS Key to encrypt Auth0 secret
+        KeyPolicy:
+          Version: '2012-10-17'
+          Id: key-default-1
+          Statement:
+            - Sid: Allow administration of the key
+              Effect: Allow
+              Principal:
+                AWS:
+                  Fn::Join:
+                  - ':'
+                  - - 'arn:aws:iam:'
+                    - Ref: AWS::AccountId
+                    - 'root'
+              Action:
+                - 'kms:*'
+              Resource: '*'
+    KMSKeyAlias:
+      Type: AWS::KMS::Alias
+      Properties:
+        AliasName: alias/auth0Key-${self:provider.stage}
+        TargetKeyId: !Ref KMSKey
+    
+    Auth0SecretTodo:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Name: ${self:provider.environment.AUTH_0_SECRET_ID}
+        Description: Auth0 secret
+        KmsKeyId: !Ref KMSKey
