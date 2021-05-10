@@ -105,4 +105,28 @@ export class TodoAccess {
 
     logger.info(`Deleted Todo ${{ deletedTodo }}`)
   }
+
+  // Images
+  async updateAttachmentUrl(url: string, todoId: string, userId: string) {
+    const updateUrlItem: UpdateItemOutput = await this.docClient
+      .update({
+        TableName: this.todosTable,
+        Key: {
+          todoId,
+          userId
+        },
+        UpdateExpression: 'set #attachmentUrl = :attachmentUrl',
+        ExpressionAttributeValues: {
+          ':attachmentUrl': url
+        },
+        ExpressionAttributeNames: {
+          '#attachmentUrl': 'attachmentUrl'
+        }
+      })
+      .promise()
+
+    const updatedTodo = updateUrlItem.Attributes
+
+    logger.info(`Attachment URL updated ${updatedTodo}`)
+  }
 }
