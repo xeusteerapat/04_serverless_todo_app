@@ -19,6 +19,9 @@ provider:
     AUTH_0_WEB_KEY_SET: Auth0SecretWebKeySet-${self:provider.stage}
     AUTH_0_SECRET_FIELD: auth0Secret
     IMAGES_BUCKET_NAME: serverless-todos-images-app-${self:provider.stage}
+  tracing:
+    lambda: true
+    apiGateway: true
 
 custom:
   documentation:
