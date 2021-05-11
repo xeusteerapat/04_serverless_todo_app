@@ -4,15 +4,20 @@
   "type": "object",
   "properties": {
     "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 40
+    },
+    "dueDate": {
+      "type": "string"
+    },
+    "createdAt": {
       "type": "string"
     },
     "done": {
       "type": "boolean"
-    },
-    "attachmentUrl": {
-      "type": "string"
     }
   },
-  "required": ["name", "done", "attachmentUrl"],
+  "required": ["name", "dueDate"],
   "additionalProperties": false
 }
