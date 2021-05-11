@@ -19,7 +19,7 @@ export class Images {
     const signedUrl = s3.getSignedUrl('putObject', {
       Bucket: this.imagesBucketName,
       Key: todoId,
-      Expires: this.SignedUrlExpiration
+      Expires: Number(this.SignedUrlExpiration)
     })
 
     logger.info(`Get signed url image ${{ signedUrl, todoId }}`)
